@@ -50,6 +50,10 @@ export default function App() {
         )}
         {page === 'emails' && <Emails />}
       </main>
+
+      <footer className="text-center text-xs text-gray-400 py-4 border-t border-gray-100">
+        Build: {__BUILD_TIME__}
+      </footer>
     </div>
   );
 }

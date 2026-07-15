@@ -3,13 +3,43 @@ import { extractFromEmail } from './services/extractor';
 import { renderTemplate } from './services/response-builder';
 import { getExtractRules, getResponseTemplate } from './db';
 
+function decodeMimeSubject(subject: string): string {
+  return subject.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_, charset, encoding, text) => {
+    try {
+      if (encoding.toUpperCase() === 'B') {
+        const binary = atob(text);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder(charset).decode(bytes);
+      }
+      if (encoding.toUpperCase() === 'Q') {
+        let decoded = '';
+        for (let i = 0; i < text.length; i++) {
+          if (text[i] === '=' && i + 2 < text.length) {
+            decoded += String.fromCharCode(parseInt(text.substring(i + 1, i + 3), 16));
+            i += 2;
+          } else if (text[i] === '_') {
+            decoded += ' ';
+          } else {
+            decoded += text[i];
+          }
+        }
+        const bytes = new Uint8Array(decoded.length);
+        for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+        return new TextDecoder(charset).decode(bytes);
+      }
+      return text;
+    } catch { return text; }
+  });
+}
+
 function parseRawEmail(raw: string): { subject: string; bodyText: string; bodyHtml: string } {
   const parts = raw.replace(/\r\n/g, '\n').split(/\n\n+/);
   const headers = parts[0] || '';
   const body = parts.slice(1).join('\n\n') || '';
 
   const subjectMatch = headers.match(/^Subject:\s*(.+)$/im);
-  const subject = subjectMatch ? subjectMatch[1].trim() : '';
+  const subject = subjectMatch ? decodeMimeSubject(subjectMatch[1].trim().replace(/\s+/g, ' ')) : '';
 
   let bodyText = '';
   let bodyHtml = '';
