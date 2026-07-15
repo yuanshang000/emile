@@ -19,11 +19,17 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string, i
   const [groups, setGroups] = useState<GroupWithRules[]>([]);
   const [recentEmails, setRecentEmails] = useState<EmailListResult | null>(null);
   const [expandedEmail, setExpandedEmail] = useState<EmailRecord | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    groupsApi.list().then(setGroups).catch(console.error);
-    emailsApi.list({ limit: 10 }).then(setRecentEmails).catch(console.error);
-  }, []);
+  const load = () => {
+    setLoading(true);
+    Promise.all([
+      groupsApi.list().then(setGroups),
+      emailsApi.list({ limit: 10 }).then(setRecentEmails),
+    ]).catch(console.error).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
 
   const toggleEmail = (id: string) => {
     if (expandedEmail?.id === id) { setExpandedEmail(null); return; }
@@ -90,10 +96,16 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string, i
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
           <h2 className="font-semibold text-gray-800">最近邮件</h2>
-          <button onClick={() => onNavigate('emails')}
-            className="text-sm text-blue-600 hover:text-blue-800">
-            查看全部 →
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={load} disabled={loading}
+              className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50">
+              {loading ? '刷新中...' : '刷新'}
+            </button>
+            <button onClick={() => onNavigate('emails')}
+              className="text-sm text-blue-600 hover:text-blue-800">
+              查看全部 →
+            </button>
+          </div>
         </div>
         <div className="divide-y divide-gray-100">
           {(!recentEmails || recentEmails.items.length === 0) && (

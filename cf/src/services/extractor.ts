@@ -38,8 +38,8 @@ export function extractFromEmail(
     try {
       const regex = patternToRegex(rule.pattern);
       const match = source.match(regex);
-      if (match && match[1]) {
-        result[rule.field_name] = match[1].trim();
+      if (match && match[1] !== undefined) {
+        result[rule.field_name] = match[1].replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, '');
       } else {
         result[rule.field_name] = '';
       }

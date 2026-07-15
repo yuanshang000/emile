@@ -109,11 +109,40 @@ function MatchRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpdat
   );
 }
 
+function patternToRegex(template: string): RegExp {
+  const parts = template.split('~');
+  if (parts.length < 2) throw new Error('Pattern must contain at least one ~');
+  const regexStr = parts.map((part, i) => {
+    const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (i === parts.length - 1) return escaped;
+    const nextPart = parts[i + 1] || '';
+    return escaped + (nextPart === '' ? '([\\s\\S]*)' : '([\\s\\S]*?)');
+  }).join('');
+  return new RegExp(regexStr);
+}
+
+function previewExtract(sourceText: string, rules: { field_name: string; pattern: string }[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const rule of rules) {
+    try {
+      const match = sourceText.match(patternToRegex(rule.pattern));
+      result[rule.field_name] = match?.[1] !== undefined
+        ? match[1].replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, '')
+        : '';
+    } catch {
+      result[rule.field_name] = '';
+    }
+  }
+  return result;
+}
+
 function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpdate: () => void }) {
   const [adding, setAdding] = useState(false);
   const [fieldName, setFieldName] = useState('');
   const [source, setSource] = useState<'html' | 'text'>('html');
   const [pattern, setPattern] = useState('');
+  const [previewSource, setPreviewSource] = useState('');
+  const [previewResult, setPreviewResult] = useState<Record<string, string> | null>(null);
 
   const handleAdd = async () => {
     if (!fieldName.trim() || !pattern.trim()) return;
@@ -129,11 +158,23 @@ function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpd
     onUpdate();
   };
 
+  const runPreview = () => {
+    if (!previewSource.trim()) {
+      setPreviewResult(null);
+      return;
+    }
+    const rules = group.extract_rules.map(r => ({ field_name: r.field_name, pattern: r.pattern }));
+    if (adding && fieldName.trim() && pattern.includes('~')) {
+      rules.push({ field_name: fieldName.trim() || '预览', pattern });
+    }
+    setPreviewResult(previewExtract(previewSource, rules));
+  };
+
   return (
-    <Section title="🔧 提取规则" subtitle="用 ~ 替代动态内容，系统自动提取">
+    <Section title="🔧 提取规则" subtitle="用 ~ 替代动态内容，系统自动提取（结果自动去除前后空格）">
       <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-        💡 复制邮件 HTML 片段，用 <code className="bg-amber-100 px-1 rounded">~</code> 替代验证码等动态内容。
-        例如: <code className="bg-amber-100 px-1 rounded">{'<span class="code">~</span>'}</code>
+        💡 复制邮件正文片段，用 <code className="bg-amber-100 px-1 rounded">~</code> 替代验证码等动态内容。
+        例如: <code className="bg-amber-100 px-1 rounded">输入此临时验证码以继续： ~如果并非你本人</code>
       </div>
       {group.extract_rules.map(r => (
         <div key={r.id} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-lg mb-2">
@@ -156,7 +197,7 @@ function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpd
               <option value="text">纯文本正文</option>
             </select>
             <input value={pattern} onChange={e => setPattern(e.target.value)}
-              placeholder={'用 ~ 替代动态值，如 <span>~</span>'}
+              placeholder={'用 ~ 替代动态值，如 验证码： ~ 如果'}
               className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
           </div>
           <div className="flex gap-2">
@@ -167,6 +208,46 @@ function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpd
       ) : (
         <button onClick={() => setAdding(true)} className="text-sm text-blue-600 hover:text-blue-800 mt-2">+ 添加提取规则</button>
       )}
+
+      <div className="mt-5 pt-4 border-t border-gray-100">
+        <div className="text-sm font-medium text-gray-700 mb-2">🧪 提取预览</div>
+        <p className="text-xs text-gray-400 mb-2">粘贴邮件正文源文本，按当前规则（及下方正在编辑的规则）预览提取结果</p>
+        <textarea
+          value={previewSource}
+          onChange={e => setPreviewSource(e.target.value)}
+          placeholder={'粘贴邮件正文，例如：\n输入此临时验证码以继续： 873853 如果并非你本人尝试创建 ChatGPT 帐户，请忽略此电子邮件'}
+          className="w-full h-28 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <div className="flex gap-2 mt-2">
+          <button onClick={runPreview}
+            className="px-3 py-1.5 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700">
+            预览提取
+          </button>
+          <button onClick={() => { setPreviewSource(''); setPreviewResult(null); }}
+            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-xs">
+            清空
+          </button>
+        </div>
+        {previewResult && (
+          <div className="mt-3">
+            <div className="text-xs text-gray-400 mb-1">提取结果：</div>
+            {Object.keys(previewResult).length === 0 ? (
+              <div className="text-sm text-gray-400">暂无提取规则</div>
+            ) : (
+              <div className="space-y-1">
+                {Object.entries(previewResult).map(([k, v]) => (
+                  <div key={k} className="flex items-center gap-2 text-sm">
+                    <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-medium">{k}</span>
+                    <code className="bg-white px-2 py-1 rounded border border-gray-200 text-gray-800">
+                      {v === '' ? '(未匹配)' : v}
+                    </code>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </Section>
   );
 }
@@ -258,9 +339,9 @@ function ApiUsageSection({ group }: { group: GroupWithRules }) {
             GET {baseUrl}/api/emails?group={group.id}&limit=10
           </code>
         </div>
-        <div className="mt-3 text-xs text-gray-400">
-          Cloudflare Email Worker 推送邮件接口：<br />
-          <code className="bg-gray-50 px-2 py-1 rounded border border-gray-200 text-blue-600">
+        <div>
+          <div className="text-gray-500 mb-1">Cloudflare Email Worker 推送邮件接口：</div>
+          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200">
             POST {baseUrl}/api/webhook/email
           </code>
         </div>
