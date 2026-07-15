@@ -120,9 +120,9 @@ export default function Emails() {
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      {group && (
-                        <span className="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700">{group.name}</span>
-                      )}
+                      <span className={`px-2 py-0.5 rounded text-xs ${group ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {group ? group.name : '默认'}
+                      </span>
                       <div className="text-xs text-gray-400 mt-1">
                         {new Date(e.received_at).toLocaleString('zh-CN')}
                       </div>

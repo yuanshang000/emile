@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { groupsApi, GroupWithRules } from '../api';
+import { groupsApi, emailsApi, GroupWithRules, EmailRecord } from '../api';
 
 const FIELD_LABELS: Record<string, string> = {
   sender: '发件人',
@@ -121,28 +121,23 @@ function patternToRegex(template: string): RegExp {
   return new RegExp(regexStr);
 }
 
-function previewExtract(sourceText: string, rules: { field_name: string; pattern: string }[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const rule of rules) {
-    try {
-      const match = sourceText.match(patternToRegex(rule.pattern));
-      result[rule.field_name] = match?.[1] !== undefined
-        ? match[1].replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, '')
-        : '';
-    } catch {
-      result[rule.field_name] = '';
-    }
-  }
-  return result;
-}
-
 function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpdate: () => void }) {
   const [adding, setAdding] = useState(false);
   const [fieldName, setFieldName] = useState('');
   const [source, setSource] = useState<'html' | 'text'>('html');
   const [pattern, setPattern] = useState('');
-  const [previewSource, setPreviewSource] = useState('');
+  const [emails, setEmails] = useState<EmailRecord[]>([]);
+  const [selectedEmailId, setSelectedEmailId] = useState('');
   const [previewResult, setPreviewResult] = useState<Record<string, string> | null>(null);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+
+  useEffect(() => {
+    setLoadingEmails(true);
+    emailsApi.list({ group: group.id, limit: 50 })
+      .then(res => setEmails(res.items))
+      .catch(console.error)
+      .finally(() => setLoadingEmails(false));
+  }, [group.id]);
 
   const handleAdd = async () => {
     if (!fieldName.trim() || !pattern.trim()) return;
@@ -158,16 +153,37 @@ function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpd
     onUpdate();
   };
 
-  const runPreview = () => {
-    if (!previewSource.trim()) {
+  const runPreview = async () => {
+    if (!selectedEmailId) {
       setPreviewResult(null);
       return;
     }
-    const rules = group.extract_rules.map(r => ({ field_name: r.field_name, pattern: r.pattern }));
-    if (adding && fieldName.trim() && pattern.includes('~')) {
-      rules.push({ field_name: fieldName.trim() || '预览', pattern });
+    try {
+      const email = await emailsApi.get(selectedEmailId);
+      const rules = group.extract_rules.map(r => ({
+        field_name: r.field_name,
+        pattern: r.pattern,
+        source: r.source,
+      }));
+      if (adding && fieldName.trim() && pattern.includes('~')) {
+        rules.push({ field_name: fieldName.trim() || '预览', pattern, source });
+      }
+      const result: Record<string, string> = {};
+      for (const rule of rules) {
+        const text = rule.source === 'html' ? (email.body_html || email.body_text) : (email.body_text || email.body_html);
+        try {
+          const match = (text || '').match(patternToRegex(rule.pattern));
+          result[rule.field_name] = match?.[1] !== undefined
+            ? match[1].replace(/^[\s\u00a0\u200b]+|[\s\u00a0\u200b]+$/g, '')
+            : '';
+        } catch {
+          result[rule.field_name] = '';
+        }
+      }
+      setPreviewResult(result);
+    } catch {
+      setPreviewResult(null);
     }
-    setPreviewResult(previewExtract(previewSource, rules));
   };
 
   return (
@@ -211,21 +227,24 @@ function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpd
 
       <div className="mt-5 pt-4 border-t border-gray-100">
         <div className="text-sm font-medium text-gray-700 mb-2">🧪 提取预览</div>
-        <p className="text-xs text-gray-400 mb-2">粘贴邮件正文源文本，按当前规则（及下方正在编辑的规则）预览提取结果</p>
-        <textarea
-          value={previewSource}
-          onChange={e => setPreviewSource(e.target.value)}
-          placeholder={'粘贴邮件正文，例如：\n输入此临时验证码以继续： 873853 如果并非你本人尝试创建 ChatGPT 帐户，请忽略此电子邮件'}
-          className="w-full h-28 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div className="flex gap-2 mt-2">
-          <button onClick={runPreview}
-            className="px-3 py-1.5 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700">
+        <p className="text-xs text-gray-400 mb-2">选择本分组已接收的邮件，按当前规则预览提取结果</p>
+        <div className="flex gap-2 items-center">
+          <select
+            value={selectedEmailId}
+            onChange={e => { setSelectedEmailId(e.target.value); setPreviewResult(null); }}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            disabled={loadingEmails}
+          >
+            <option value="">{loadingEmails ? '加载中...' : emails.length === 0 ? '本分组暂无邮件' : '选择一封邮件'}</option>
+            {emails.map(e => (
+              <option key={e.id} value={e.id}>
+                {e.subject || '(无主题)'} — {e.from_addr} — {new Date(e.received_at).toLocaleString('zh-CN')}
+              </option>
+            ))}
+          </select>
+          <button onClick={runPreview} disabled={!selectedEmailId}
+            className="px-3 py-2 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 disabled:opacity-50">
             预览提取
-          </button>
-          <button onClick={() => { setPreviewSource(''); setPreviewResult(null); }}
-            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-xs">
-            清空
           </button>
         </div>
         {previewResult && (
