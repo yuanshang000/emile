@@ -5,6 +5,7 @@ import { groupsRoute } from './routes/groups';
 import { emailsRoute } from './routes/emails';
 import { codesRoute } from './routes/codes';
 import { handleIncomingEmail } from './email-handler';
+import { cleanupOldEmails } from './db';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -40,5 +41,9 @@ export default {
   fetch: app.fetch,
   async email(message: ForwardableEmailMessage, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(handleIncomingEmail(message, env));
+  },
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    const deleted = await cleanupOldEmails(env.DB);
+    console.log(`[Cron] Cleaned up ${deleted} old email records`);
   },
 };

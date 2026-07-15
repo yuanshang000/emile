@@ -147,3 +147,8 @@ export async function getActiveMatchRules(db: D1Database, groupId: string) {
   ).bind(groupId).all();
   return results;
 }
+
+export async function cleanupOldEmails(db: D1Database) {
+  const { meta } = await db.prepare("DELETE FROM emails WHERE received_at < datetime('now', '-7 days')").run();
+  return meta.changes;
+}

@@ -66,6 +66,9 @@ jobs:
 
           [[email_routes]]
           pattern = "*@${DOMAIN}"
+
+          [[triggers]]
+          crons = ["0 0 * * 0"]
           WRANGLEREOF
           echo "wrangler.toml generated"
 
