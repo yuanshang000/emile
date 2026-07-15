@@ -158,3 +158,56 @@ export async function cleanupOldEmails(db: D1Database) {
   const { meta } = await db.prepare("DELETE FROM emails WHERE received_at < datetime('now', '-7 days')").run();
   return meta.changes;
 }
+
+export async function listForwardAccounts(db: D1Database) {
+  const { results } = await db.prepare(
+    'SELECT * FROM forward_accounts ORDER BY updated_at DESC, created_at DESC'
+  ).all();
+  return results;
+}
+
+export async function getForwardAccount(db: D1Database, id: string) {
+  return db.prepare('SELECT * FROM forward_accounts WHERE id = ?').bind(id).first();
+}
+
+export async function createForwardAccount(db: D1Database, data: {
+  site_name?: string;
+  site_url?: string;
+  domain?: string;
+  usage?: string;
+  note?: string;
+}) {
+  const id = uid();
+  await db.prepare(
+    'INSERT INTO forward_accounts (id, site_name, site_url, domain, usage, note) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(
+    id,
+    data.site_name || '',
+    data.site_url || '',
+    data.domain || '',
+    data.usage || '',
+    data.note || ''
+  ).run();
+  return getForwardAccount(db, id);
+}
+
+export async function updateForwardAccount(db: D1Database, id: string, data: any) {
+  const existing: any = await getForwardAccount(db, id);
+  if (!existing) return null;
+  await db.prepare(
+    "UPDATE forward_accounts SET site_name=?, site_url=?, domain=?, usage=?, note=?, updated_at=datetime('now') WHERE id=?"
+  ).bind(
+    data.site_name ?? existing.site_name,
+    data.site_url ?? existing.site_url,
+    data.domain ?? existing.domain,
+    data.usage ?? existing.usage,
+    data.note ?? existing.note,
+    id
+  ).run();
+  return getForwardAccount(db, id);
+}
+
+export async function deleteForwardAccount(db: D1Database, id: string) {
+  const { meta } = await db.prepare('DELETE FROM forward_accounts WHERE id = ?').bind(id).run();
+  return meta.changes > 0;
+}

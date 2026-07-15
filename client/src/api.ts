@@ -118,3 +118,26 @@ export const codesApi = {
   latest: (groupId: string) => request<any>(`/codes/latest?group=${groupId}`),
   latestCode: (groupId: string) => request<{ code: string }>(`/codes/latest/code?group=${groupId}`),
 };
+
+// ---- Forward accounts API ----
+export interface ForwardAccount {
+  id: string;
+  site_name: string;
+  site_url: string;
+  domain: string;
+  usage: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const forwardsApi = {
+  list: () => request<ForwardAccount[]>('/forwards'),
+  get: (id: string) => request<ForwardAccount>(`/forwards/${id}`),
+  create: (data: Partial<ForwardAccount>) =>
+    request<ForwardAccount>('/forwards', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<ForwardAccount>) =>
+    request<ForwardAccount>(`/forwards/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request<{ success: boolean }>(`/forwards/${id}`, { method: 'DELETE' }),
+};

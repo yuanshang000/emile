@@ -4,6 +4,7 @@ import { webhookRoute } from './routes/webhook';
 import { groupsRoute } from './routes/groups';
 import { emailsRoute } from './routes/emails';
 import { codesRoute } from './routes/codes';
+import { forwardsRoute } from './routes/forwards';
 import { handleIncomingEmail } from './email-handler';
 import { cleanupOldEmails } from './db';
 
@@ -23,6 +24,7 @@ app.route('/api', webhookRoute);
 app.route('/api/groups', groupsRoute);
 app.route('/api/emails', emailsRoute);
 app.route('/api/codes', codesRoute);
+app.route('/api/forwards', forwardsRoute);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

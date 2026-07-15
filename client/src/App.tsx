@@ -3,8 +3,9 @@ import Dashboard from './pages/Dashboard';
 import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
 import Emails from './pages/Emails';
+import Forwards from './pages/Forwards';
 
-type Page = 'dashboard' | 'groups' | 'group-detail' | 'emails';
+type Page = 'dashboard' | 'groups' | 'group-detail' | 'emails' | 'forwards';
 
 const DEFAULT_DOMAIN = 'ysyxopq.eu.cc';
 const DEFAULT_QUICK_EMAIL = 'ys@ysyxopq.eu.cc';
@@ -180,6 +181,10 @@ export default function App() {
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${page === 'emails' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
                 邮件记录
               </button>
+              <button onClick={() => nav('forwards')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${page === 'forwards' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
+                转发邮箱
+              </button>
             </div>
           </div>
           <div className="sm:hidden flex items-center gap-2 pb-2 flex-wrap">
@@ -196,6 +201,7 @@ export default function App() {
           <GroupDetail groupId={selectedGroupId} onBack={() => nav('groups')} />
         )}
         {page === 'emails' && <Emails />}
+        {page === 'forwards' && <Forwards />}
       </main>
 
       <footer className="text-center text-xs text-gray-400 py-4 border-t border-gray-100">
