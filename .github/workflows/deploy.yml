@@ -1,0 +1,78 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 22
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  DOMAIN: ${{ secrets.DOMAIN || 'yourdomain.com' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: cf
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: client
+
+      - name: Copy frontend build to Worker assets directory
+        run: cp -r client/dist cf/dist
+
+      - name: Create D1 database (if not exists) & get database ID
+        id: d1
+        working-directory: cf
+        run: |
+          npx wrangler d1 create manyme-db 2>/dev/null || echo "Database already exists"
+          DB_JSON=$(npx wrangler d1 list --json 2>/dev/null)
+          DB_ID=$(echo "$DB_JSON" | node -e "
+            let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+              const dbs=JSON.parse(d);const db=dbs.find(d=>d.name==='manyme-db');
+              if(db){console.log(db.uuid)}else{process.exit(1)}
+            })
+          ")
+          echo "database_id=$DB_ID" >> $GITHUB_OUTPUT
+          echo "D1 database ready: $DB_ID"
+
+      - name: Generate wrangler.toml with real database ID
+        working-directory: cf
+        run: |
+          cat <<WRANGLEREOF > wrangler.toml
+          name = "manyme-api"
+          main = "src/index.ts"
+          compatibility_date = "2024-12-01"
+          assets = { directory = "./dist" }
+
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "manyme-db"
+          database_id = "${{ steps.d1.outputs.database_id }}"
+
+          [[email_routes]]
+          pattern = "*@${DOMAIN}"
+          WRANGLEREOF
+          echo "wrangler.toml generated"
+
+      - name: Run D1 migrations
+        working-directory: cf
+        run: npx wrangler d1 migrations apply manyme-db --remote
+
+      - name: Deploy Worker (API + frontend assets)
+        working-directory: cf
+        run: npx wrangler deploy

@@ -1,0 +1,20 @@
+name = "manyme-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "manyme-db"
+database_id = "your-database-id-here"
+
+# Email Routing
+[[email_routes]]
+pattern = "*@yourdomain.com"
+
+# Uncomment when deploying:
+# [env.production]
+# [[env.production.d1_databases]]
+# binding = "DB"
+# database_name = "manyme-db"
+# database_id = "prod-database-id"

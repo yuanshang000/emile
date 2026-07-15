@@ -1,0 +1,20 @@
+{
+  "name": "manyme-cf",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply manyme-db --remote",
+    "db:seed": "wrangler d1 execute manyme-db --file=./seed.sql --remote",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241201.0",
+    "wrangler": "^3.100.0",
+    "typescript": "^5.7.0"
+  }
+}

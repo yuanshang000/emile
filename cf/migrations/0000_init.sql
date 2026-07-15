@@ -1,0 +1,56 @@
+-- Migration 0000: Initial schema
+CREATE TABLE IF NOT EXISTS groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  priority INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS match_rules (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  field TEXT NOT NULL CHECK(field IN ('sender','subject','body_html','body_text')),
+  operator TEXT NOT NULL CHECK(operator IN ('contains','equals','regex','starts_with','ends_with')),
+  pattern TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS extract_rules (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  field_name TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'html' CHECK(source IN ('html','text')),
+  pattern TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS response_templates (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  template TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS emails (
+  id TEXT PRIMARY KEY,
+  message_id TEXT,
+  from_addr TEXT NOT NULL,
+  to_addr TEXT NOT NULL,
+  subject TEXT NOT NULL DEFAULT '',
+  body_text TEXT DEFAULT '',
+  body_html TEXT DEFAULT '',
+  group_id TEXT REFERENCES groups(id),
+  extracted_data TEXT DEFAULT '{}',
+  response_cache TEXT DEFAULT '{}',
+  received_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_emails_group ON emails(group_id);
+CREATE INDEX IF NOT EXISTS idx_emails_from ON emails(from_addr);
+CREATE INDEX IF NOT EXISTS idx_emails_received ON emails(received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_groups_priority ON groups(priority DESC);
