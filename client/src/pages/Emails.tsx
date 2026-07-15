@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { emailsApi, groupsApi, EmailListResult, GroupWithRules, EmailRecord } from '../api';
 
+function safeParse(data: any): Record<string, string> {
+  if (!data) return {};
+  if (typeof data === 'object') return data;
+  try { return JSON.parse(data); } catch { return {}; }
+}
+
 export default function Emails() {
   const [data, setData] = useState<EmailListResult | null>(null);
   const [groups, setGroups] = useState<GroupWithRules[]>([]);
@@ -75,7 +81,7 @@ export default function Emails() {
           )}
           {data?.items.map(e => {
             const group = groups.find(g => g.id === e.group_id);
-            const extracted: Record<string, string> = JSON.parse(e.extracted_data || '{}');
+            const extracted = safeParse(e.extracted_data);
             const isOpen = selected?.id === e.id;
             return (
               <div key={e.id}>
@@ -137,11 +143,11 @@ export default function Emails() {
                         <span className="text-gray-800">{new Date(selected.received_at).toLocaleString('zh-CN')}</span>
                       </div>
 
-                      {Object.keys(JSON.parse(selected.extracted_data || '{}')).length > 0 && (
+                      {Object.keys(safeParse(selected.extracted_data)).length > 0 && (
                         <div>
                           <span className="text-gray-400">提取数据：</span>
                           <pre className="mt-1 bg-white p-2 rounded border text-xs overflow-x-auto">
-                            {JSON.stringify(JSON.parse(selected.extracted_data), null, 2)}
+                            {JSON.stringify(safeParse(selected.extracted_data), null, 2)}
                           </pre>
                         </div>
                       )}
