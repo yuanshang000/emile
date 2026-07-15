@@ -68,22 +68,16 @@ function decodeQPLine(line: string): number[] {
   return result;
 }
 
-function detectCharset(headers: string): string {
-  const match = headers.match(/charset\s*=\s*"([^"]+)"/i) || headers.match(/charset\s*=\s*(\S+)/i);
-  return match ? match[1].toLowerCase() : 'utf-8';
-}
-
 function parseRawEmail(raw: string): { subject: string; bodyText: string; bodyHtml: string } {
   const normalized = raw.replace(/\r\n/g, '\n');
+  const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(normalized);
+
   const parts = normalized.split(/\n\n+/);
   const headers = parts[0] || '';
   const body = parts.slice(1).join('\n\n') || '';
 
   const subjectMatch = headers.match(/^Subject:\s*(.+)$/im);
   const subject = subjectMatch ? decodeMimeSubject(subjectMatch[1].trim().replace(/\s+/g, ' ')) : '';
-
-  const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(headers);
-  const charset = detectCharset(headers);
 
   let bodyText = '';
   let bodyHtml = '';

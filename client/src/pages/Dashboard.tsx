@@ -1,25 +1,18 @@
 import { useState, useEffect } from 'react';
 import { groupsApi, emailsApi, GroupWithRules, EmailListResult, EmailRecord } from '../api';
 
-function decodeQP(text: string): string {
-  if (!text || !/=[0-9A-Fa-f]{2}/.test(text)) return text;
-  const bytes: number[] = [];
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const end = line.endsWith('=') ? line.length - 1 : line.length;
-    let j = 0;
-    while (j < end) {
-      if (line[j] === '=' && j + 2 < end) {
-        const hex = line.substring(j + 1, j + 3);
-        if (/^[0-9A-Fa-f]{2}$/.test(hex)) { bytes.push(parseInt(hex, 16)); j += 3; continue; }
+function decodeMime(text: string): string {
+  return text.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_, charset, encoding, content) => {
+    try {
+      if (encoding.toUpperCase() === 'B') {
+        const binary = atob(content);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder(charset).decode(bytes);
       }
-      bytes.push(line.charCodeAt(j));
-      j++;
-    }
-    if (!line.endsWith('=') && i < lines.length - 1) bytes.push(10);
-  }
-  try { return new TextDecoder().decode(new Uint8Array(bytes)); } catch { return text; }
+      return content;
+    } catch { return content; }
+  });
 }
 
 export default function Dashboard({ onNavigate }: { onNavigate: (page: string, id?: string) => void }) {
@@ -113,7 +106,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string, i
                 <div className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
                   onClick={() => toggleEmail(e.id)}>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-800 truncate">{e.subject || '(无主题)'}</div>
+                    <div className="font-medium text-gray-800 truncate">{decodeMime(e.subject || '(无主题)')}</div>
                     <div className="text-sm text-gray-400 truncate">{e.from_addr}</div>
                   </div>
                   <div className="text-xs text-gray-400 ml-4 whitespace-nowrap">
@@ -129,16 +122,22 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string, i
                     </div>
                     <div className="space-y-1.5 text-xs text-gray-700">
                       <div><span className="text-gray-400">收件人：</span>{expandedEmail.to_addr}</div>
-                      <div><span className="text-gray-400">主题：</span>{expandedEmail.subject}</div>
+                      <div><span className="text-gray-400">主题：</span>{decodeMime(expandedEmail.subject)}</div>
                       <div><span className="text-gray-400">时间：</span>{new Date(expandedEmail.received_at).toLocaleString('zh-CN')}</div>
-                      {(expandedEmail.body_text || expandedEmail.body_html) && (
+                      {expandedEmail.body_html ? (
+                        <div>
+                          <span className="text-gray-400">正文：</span>
+                          <iframe className="mt-1 w-full bg-white rounded border" style={{ height: '300px' }}
+                            srcDoc={expandedEmail.body_html} sandbox="allow-same-origin" />
+                        </div>
+                      ) : expandedEmail.body_text ? (
                         <div>
                           <span className="text-gray-400">正文：</span>
                           <div className="mt-1 bg-white p-2 rounded border max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
-                            {decodeQP(expandedEmail.body_text || expandedEmail.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())}
+                            {expandedEmail.body_text}
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 )}

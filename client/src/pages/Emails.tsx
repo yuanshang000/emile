@@ -7,25 +7,18 @@ function safeParse(data: any): Record<string, string> {
   try { return JSON.parse(data); } catch { return {}; }
 }
 
-function decodeQP(text: string): string {
-  if (!text || !/=[0-9A-Fa-f]{2}/.test(text)) return text;
-  const bytes: number[] = [];
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const end = line.endsWith('=') ? line.length - 1 : line.length;
-    let j = 0;
-    while (j < end) {
-      if (line[j] === '=' && j + 2 < end) {
-        const hex = line.substring(j + 1, j + 3);
-        if (/^[0-9A-Fa-f]{2}$/.test(hex)) { bytes.push(parseInt(hex, 16)); j += 3; continue; }
+function decodeMime(text: string): string {
+  return text.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_, charset, encoding, content) => {
+    try {
+      if (encoding.toUpperCase() === 'B') {
+        const binary = atob(content);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder(charset).decode(bytes);
       }
-      bytes.push(line.charCodeAt(j));
-      j++;
-    }
-    if (!line.endsWith('=') && i < lines.length - 1) bytes.push(10);
-  }
-  try { return new TextDecoder().decode(new Uint8Array(bytes)); } catch { return text; }
+      return content;
+    } catch { return content; }
+  });
 }
 
 export default function Emails() {
@@ -110,7 +103,7 @@ export default function Emails() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-gray-800 truncate">{e.subject || '(无主题)'}</div>
+                      <div className="font-medium text-gray-800 truncate">{decodeMime(e.subject || '(无主题)')}</div>
                       <div className="text-sm text-gray-500 mt-0.5">
                         <span className="text-blue-600">{e.from_addr}</span>
                         <span className="mx-2 text-gray-300">→</span>
@@ -155,7 +148,7 @@ export default function Emails() {
                       </div>
                       <div>
                         <span className="text-gray-400">主题：</span>
-                        <span className="text-gray-800">{selected.subject || '(无主题)'}</span>
+                        <span className="text-gray-800">{decodeMime(selected.subject || '(无主题)')}</span>
                       </div>
                       <div>
                         <span className="text-gray-400">接收时间：</span>
@@ -171,14 +164,20 @@ export default function Emails() {
                         </div>
                       )}
 
-                      {(selected.body_text || selected.body_html) && (
+                      {selected.body_html ? (
+                        <div>
+                          <span className="text-gray-400">正文（HTML）：</span>
+                          <iframe className="mt-1 w-full bg-white rounded border" style={{ height: '400px' }}
+                            srcDoc={selected.body_html} sandbox="allow-same-origin" />
+                        </div>
+                      ) : selected.body_text ? (
                         <div>
                           <span className="text-gray-400">正文：</span>
                           <div className="mt-1 bg-white p-3 rounded border max-h-64 overflow-y-auto text-xs whitespace-pre-wrap break-all">
-                            {decodeQP(selected.body_text || selected.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())}
+                            {selected.body_text}
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 )}
