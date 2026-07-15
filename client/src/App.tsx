@@ -156,13 +156,17 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-14 items-center gap-4">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xl">📧</span>
-              <span className="font-semibold text-gray-800">Manyme API</span>
+              <button type="button" onClick={() => nav('dashboard')}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <span className="text-xl">📧</span>
+                <span className="font-semibold text-gray-800">Manyme API</span>
+              </button>
               <div className="hidden sm:flex items-center gap-2 ml-3">
                 <EditableChip label="域名" value={domain} onChange={saveDomain} />
                 <EditableChip label="快速邮箱" value={quickEmail} onChange={saveQuick} />
               </div>
             </div>
+
             <div className="flex gap-1 flex-shrink-0">
               <button onClick={() => nav('dashboard')}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${page === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
