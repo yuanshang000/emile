@@ -33,23 +33,67 @@ function decodeMimeSubject(subject: string): string {
   });
 }
 
+function decodeQuotedPrintable(text: string): string {
+  const bytes: number[] = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.endsWith('=')) {
+      const decoded = decodeQPLine(line.slice(0, -1));
+      bytes.push(...decoded);
+    } else {
+      const decoded = decodeQPLine(line);
+      bytes.push(...decoded);
+      if (i < lines.length - 1) bytes.push(10);
+    }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+function decodeQPLine(line: string): number[] {
+  const result: number[] = [];
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === '=' && i + 2 < line.length) {
+      const hex = line.substring(i + 1, i + 3);
+      if (/^[0-9A-Fa-f]{2}$/.test(hex)) {
+        result.push(parseInt(hex, 16));
+        i += 3;
+        continue;
+      }
+    }
+    result.push(line.charCodeAt(i));
+    i++;
+  }
+  return result;
+}
+
+function detectCharset(headers: string): string {
+  const match = headers.match(/charset\s*=\s*"([^"]+)"/i) || headers.match(/charset\s*=\s*(\S+)/i);
+  return match ? match[1].toLowerCase() : 'utf-8';
+}
+
 function parseRawEmail(raw: string): { subject: string; bodyText: string; bodyHtml: string } {
-  const parts = raw.replace(/\r\n/g, '\n').split(/\n\n+/);
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const parts = normalized.split(/\n\n+/);
   const headers = parts[0] || '';
   const body = parts.slice(1).join('\n\n') || '';
 
   const subjectMatch = headers.match(/^Subject:\s*(.+)$/im);
   const subject = subjectMatch ? decodeMimeSubject(subjectMatch[1].trim().replace(/\s+/g, ' ')) : '';
 
+  const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(headers);
+  const charset = detectCharset(headers);
+
   let bodyText = '';
   let bodyHtml = '';
 
   if (body.includes('Content-Type: text/html') || /<html|<body|<div|<p>/i.test(body)) {
-    bodyHtml = body;
-    const textMatch = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    bodyHtml = isQP ? decodeQuotedPrintable(body) : body;
+    const textMatch = bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     bodyText = textMatch;
   } else {
-    bodyText = body;
+    bodyText = isQP ? decodeQuotedPrintable(body) : body;
   }
 
   return { subject, bodyText, bodyHtml };

@@ -7,6 +7,27 @@ function safeParse(data: any): Record<string, string> {
   try { return JSON.parse(data); } catch { return {}; }
 }
 
+function decodeQP(text: string): string {
+  if (!text || !/=[0-9A-Fa-f]{2}/.test(text)) return text;
+  const bytes: number[] = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const end = line.endsWith('=') ? line.length - 1 : line.length;
+    let j = 0;
+    while (j < end) {
+      if (line[j] === '=' && j + 2 < end) {
+        const hex = line.substring(j + 1, j + 3);
+        if (/^[0-9A-Fa-f]{2}$/.test(hex)) { bytes.push(parseInt(hex, 16)); j += 3; continue; }
+      }
+      bytes.push(line.charCodeAt(j));
+      j++;
+    }
+    if (!line.endsWith('=') && i < lines.length - 1) bytes.push(10);
+  }
+  try { return new TextDecoder().decode(new Uint8Array(bytes)); } catch { return text; }
+}
+
 export default function Emails() {
   const [data, setData] = useState<EmailListResult | null>(null);
   const [groups, setGroups] = useState<GroupWithRules[]>([]);
@@ -33,11 +54,9 @@ export default function Emails() {
     load();
   }, [filterGroup, filterSender, page]);
 
-  const openDetail = async (id: string) => {
-    try {
-      const email = await emailsApi.get(id);
-      setSelected(email);
-    } catch { }
+  const toggleDetail = (id: string) => {
+    if (selected?.id === id) { setSelected(null); return; }
+    emailsApi.get(id).then(setSelected).catch(() => { });
   };
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
@@ -86,7 +105,7 @@ export default function Emails() {
             return (
               <div key={e.id}>
                 <div
-                  onClick={() => openDetail(e.id)}
+                  onClick={() => toggleDetail(e.id)}
                   className={`px-5 py-3 cursor-pointer transition-colors ${isOpen ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -156,7 +175,7 @@ export default function Emails() {
                         <div>
                           <span className="text-gray-400">正文：</span>
                           <div className="mt-1 bg-white p-3 rounded border max-h-64 overflow-y-auto text-xs whitespace-pre-wrap break-all">
-                            {selected.body_text || selected.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}
+                            {decodeQP(selected.body_text || selected.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())}
                           </div>
                         </div>
                       )}
