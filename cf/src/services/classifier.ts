@@ -107,3 +107,19 @@ export async function classifyEmail(
 
   return null;
 }
+
+export async function reclassifyEmails(db: D1Database): Promise<number> {
+  const { results } = await db.prepare(
+    "SELECT id, from_addr, subject, body_text, body_html FROM emails WHERE group_id IS NULL"
+  ).all();
+
+  let changed = 0;
+  for (const email of results as any[]) {
+    const result = await classifyEmail(db, email);
+    if (result) {
+      await db.prepare("UPDATE emails SET group_id = ? WHERE id = ?").bind(result.groupId, email.id).run();
+      changed++;
+    }
+  }
+  return changed;
+}

@@ -15,6 +15,7 @@ import {
   upsertResponseTemplate,
   deleteResponseTemplate,
 } from '../db';
+import { reclassifyEmails } from '../services/classifier';
 
 export const groupsRoute = new Hono<{ Bindings: Env }>();
 
@@ -42,6 +43,7 @@ groupsRoute.put('/:id', async (c) => {
   const data = await c.req.json();
   const group = await updateGroup(c.env.DB, c.req.param('id'), data);
   if (!group) return c.json({ error: 'Group not found' }, 404);
+  if (data.enabled !== undefined) await reclassifyEmails(c.env.DB);
   return c.json(group);
 });
 
@@ -59,6 +61,7 @@ groupsRoute.post('/:groupId/match-rules', async (c) => {
   const rule = await createMatchRule(c.env.DB, {
     group_id: c.req.param('groupId'), field, operator, pattern,
   });
+  await reclassifyEmails(c.env.DB);
   return c.json(rule, 201);
 });
 
@@ -66,12 +69,14 @@ groupsRoute.put('/match-rules/:id', async (c) => {
   const data = await c.req.json();
   const rule = await updateMatchRule(c.env.DB, c.req.param('id'), data);
   if (!rule) return c.json({ error: 'Match rule not found' }, 404);
+  await reclassifyEmails(c.env.DB);
   return c.json(rule);
 });
 
 groupsRoute.delete('/match-rules/:id', async (c) => {
   const deleted = await deleteMatchRule(c.env.DB, c.req.param('id'));
   if (!deleted) return c.json({ error: 'Match rule not found' }, 404);
+  await reclassifyEmails(c.env.DB);
   return c.json({ success: true });
 });
 

@@ -15,6 +15,7 @@ import {
   upsertResponseTemplate,
   deleteResponseTemplate,
 } from '../services/groups';
+import { reclassifyEmails } from '../services/classifier';
 
 const router = Router();
 
@@ -49,6 +50,7 @@ router.put('/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Group not found' });
     return;
   }
+  if (enabled !== undefined) reclassifyEmails();
   res.json(group);
 });
 
@@ -68,6 +70,7 @@ router.post('/:groupId/match-rules', (req: Request, res: Response) => {
     return;
   }
   const rule = createMatchRule({ group_id: String(req.params.groupId), field, operator, pattern });
+  reclassifyEmails();
   res.status(201).json(rule);
 });
 
@@ -77,6 +80,7 @@ router.put('/match-rules/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Match rule not found' });
     return;
   }
+  reclassifyEmails();
   res.json(rule);
 });
 
@@ -86,6 +90,7 @@ router.delete('/match-rules/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Match rule not found' });
     return;
   }
+  reclassifyEmails();
   res.json({ success: true });
 });
 

@@ -86,3 +86,20 @@ export function classifyEmail(email: {
 
   return null;
 }
+
+export function reclassifyEmails(): number {
+  const db = getDb();
+  const emails = db.prepare(
+    'SELECT id, from_addr, subject, body_text, body_html FROM emails WHERE group_id IS NULL'
+  ).all() as { id: string; from_addr: string; subject: string; body_text: string; body_html: string }[];
+
+  let changed = 0;
+  for (const email of emails) {
+    const result = classifyEmail(email);
+    if (result) {
+      db.prepare('UPDATE emails SET group_id = ? WHERE id = ?').run(result.groupId, email.id);
+      changed++;
+    }
+  }
+  return changed;
+}
