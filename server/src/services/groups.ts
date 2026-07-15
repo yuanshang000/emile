@@ -82,6 +82,12 @@ export function createGroup(data: { name: string; description?: string; priority
     INSERT INTO groups (id, name, description, priority)
     VALUES (?, ?, ?, ?)
   `).run(id, data.name, data.description || '', data.priority ?? 0);
+  const defaultTemplate = `{
+  "group": "${(data.name || '').replace(/"/g, '\\"')}",
+  "time": "{{接收时间}}",
+  "code": "{{验证码}}"
+}`;
+  upsertResponseTemplate(id, defaultTemplate);
   return getGroup(id)!;
 }
 

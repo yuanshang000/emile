@@ -42,6 +42,12 @@ export async function createGroup(db: D1Database, data: { name: string; descript
   await db.prepare(
     'INSERT INTO groups (id, name, description, priority) VALUES (?, ?, ?, ?)'
   ).bind(id, data.name, data.description || '', data.priority ?? 0).run();
+  const defaultTemplate = `{
+  "group": "${data.name.replace(/"/g, '\\"')}",
+  "time": "{{接收时间}}",
+  "code": "{{验证码}}"
+}`;
+  await upsertResponseTemplate(db, id, defaultTemplate);
   return getGroup(db, id);
 }
 

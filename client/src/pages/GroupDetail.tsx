@@ -459,13 +459,20 @@ function ExtractRulesSection({ group, onUpdate }: { group: GroupWithRules; onUpd
   );
 }
 
+const DEFAULT_TEMPLATE = (groupName: string) => `{
+  "group": "${groupName}",
+  "time": "{{接收时间}}",
+  "code": "{{验证码}}"
+}`;
+
 function ResponseTemplateSection({ group, onUpdate }: { group: GroupWithRules; onUpdate: () => void }) {
-  const [template, setTemplate] = useState(group.response_template?.template || '{\n  \n}');
+  const defaultTpl = DEFAULT_TEMPLATE(group.name);
+  const [template, setTemplate] = useState(group.response_template?.template || defaultTpl);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setTemplate(group.response_template?.template || '{\n  \n}');
-  }, [group.response_template]);
+    setTemplate(group.response_template?.template || DEFAULT_TEMPLATE(group.name));
+  }, [group.response_template, group.name]);
 
   const handleSave = async () => {
     try {
@@ -479,31 +486,48 @@ function ResponseTemplateSection({ group, onUpdate }: { group: GroupWithRules; o
     }
   };
 
-  const handleDelete = async () => {
-    await groupsApi.deleteResponseTemplate(group.id);
-    onUpdate();
+  const handleReset = async () => {
+    setTemplate(DEFAULT_TEMPLATE(group.name));
   };
 
   return (
     <Section title="📦 响应模板" subtitle="自定义 API 返回格式，用 {{变量名}} 引用提取结果">
-      <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-3">
-        💡 可用变量: <code className="bg-gray-200 px-1 rounded">{'{{验证码}}'}</code>（提取规则字段名）、
-        <code className="bg-gray-200 px-1 rounded">{'{{发件人}}'}</code>、
-        <code className="bg-gray-200 px-1 rounded">{'{{主题}}'}</code>、
-        <code className="bg-gray-200 px-1 rounded">{'{{接收时间}}'}</code>
+      <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mb-3 space-y-1">
+        <div>可用变量：</div>
+        <div className="flex flex-wrap gap-1.5">
+          <code className="bg-gray-200 px-1 rounded">{'{{验证码}}'}</code>
+          <code className="bg-gray-200 px-1 rounded">{'{{code}}'}</code>
+          <span className="text-gray-400">提取字段（默认取「验证码」或第一个提取字段）</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <code className="bg-gray-200 px-1 rounded">{'{{分组名}}'}</code>
+          <code className="bg-gray-200 px-1 rounded">{'{{group}}'}</code>
+          <span className="text-gray-400">分组名称</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <code className="bg-gray-200 px-1 rounded">{'{{接收时间}}'}</code>
+          <code className="bg-gray-200 px-1 rounded">{'{{time}}'}</code>
+          <span className="text-gray-400">邮件接收时间 ISO</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <code className="bg-gray-200 px-1 rounded">{'{{发件人}}'}</code>
+          <code className="bg-gray-200 px-1 rounded">{'{{主题}}'}</code>
+          <code className="bg-gray-200 px-1 rounded">{'{{收件人}}'}</code>
+        </div>
+        <div className="text-gray-400 pt-1">也可使用任意提取规则字段名，如 {'{{'}你的字段名{'}}'}</div>
       </div>
       <textarea value={template} onChange={e => setTemplate(e.target.value)}
-        className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder='{"platform": "openai", "code": "{{验证码}}"}'
+        className="w-full h-36 px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder={DEFAULT_TEMPLATE(group.name)}
       />
       <div className="flex gap-2 mt-2">
         <button onClick={handleSave}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
           {saved ? '✓ 已保存' : '保存模板'}
         </button>
-        <button onClick={handleDelete}
-          className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100">
-          清除模板
+        <button onClick={handleReset}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">
+          恢复默认
         </button>
       </div>
       <div className="mt-3">
@@ -511,8 +535,7 @@ function ResponseTemplateSection({ group, onUpdate }: { group: GroupWithRules; o
         <pre className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600 border border-gray-200 overflow-auto">
           {(() => {
             try {
-              const parsed = JSON.parse(template);
-              return JSON.stringify(parsed, null, 2);
+              return JSON.stringify(JSON.parse(template), null, 2);
             } catch {
               return 'JSON 格式错误';
             }
@@ -535,9 +558,24 @@ function ApiUsageSection({ group }: { group: GroupWithRules }) {
           </code>
         </div>
         <div>
+          <div className="text-gray-500 mb-1">获取指定时间之后的第一封邮件（适合发起验证后轮询）：</div>
+          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
+            GET {baseUrl}/api/codes/latest?group={group.id}&after=2026-07-15T08:00:00.000Z
+          </code>
+          <div className="text-xs text-gray-400 mt-1">
+            after 为 ISO 时间；返回该时间之后收到的第一封邮件（按接收时间升序）
+          </div>
+        </div>
+        <div>
           <div className="text-gray-500 mb-1">仅获取验证码：</div>
           <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200">
             GET {baseUrl}/api/codes/latest/code?group={group.id}
+          </code>
+        </div>
+        <div>
+          <div className="text-gray-500 mb-1">仅获取验证码（带 after）：</div>
+          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
+            GET {baseUrl}/api/codes/latest/code?group={group.id}&after=2026-07-15T08:00:00.000Z
           </code>
         </div>
         <div>

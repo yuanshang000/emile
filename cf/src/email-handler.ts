@@ -128,23 +128,30 @@ export async function handleIncomingEmail(message: ForwardableEmailMessage, env:
     const rules = await getExtractRules(db, classification.groupId);
     extractedData = extractFromEmail(bodyHtml, bodyText, rules as any[]);
 
+    const receivedAt = new Date().toISOString();
     const template = await getResponseTemplate(db, classification.groupId);
     if (template) {
       responseData = renderTemplate((template as any).template, extractedData, {
-        from_addr: from, to_addr: to, subject, received_at: new Date().toISOString(),
+        from_addr: from,
+        to_addr: to,
+        subject,
+        received_at: receivedAt,
+        group_name: classification.groupName,
       });
     }
   }
 
   const id = crypto.randomUUID();
+  const receivedAt = new Date().toISOString();
   await db.prepare(
-    `INSERT INTO emails (id, message_id, from_addr, to_addr, subject, body_text, body_html, group_id, extracted_data, response_cache)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO emails (id, message_id, from_addr, to_addr, subject, body_text, body_html, group_id, extracted_data, response_cache, received_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     id, null, from, to, subject, bodyText, bodyHtml,
     classification?.groupId ?? null,
     JSON.stringify(extractedData),
-    JSON.stringify(responseData)
+    JSON.stringify(responseData),
+    receivedAt
   ).run();
 
   console.log(`Email processed: ${from} -> ${to} [${classification?.groupName || 'unclassified'}]`);
