@@ -549,45 +549,36 @@ function ResponseTemplateSection({ group, onUpdate }: { group: GroupWithRules; o
 function ApiUsageSection({ group }: { group: GroupWithRules }) {
   const baseUrl = window.location.origin;
   return (
-    <Section title="🔌 API 调用示例" subtitle="程序直接调用的接口">
-      <div className="space-y-2 text-sm">
+    <Section title="🔌 API 调用示例" subtitle={`当前分组：${group.name}`}>
+      <div className="space-y-3 text-sm">
         <div>
-          <div className="text-gray-500 mb-1">获取最新邮件（含自定义响应）：</div>
-          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200">
+          <div className="text-gray-500 mb-1">获取本分组最新邮件（响应模板完整覆盖返回体）：</div>
+          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
             GET {baseUrl}/api/codes/latest?group={group.id}
           </code>
-        </div>
-        <div>
-          <div className="text-gray-500 mb-1">获取指定时间之后的第一封邮件（适合发起验证后轮询）：</div>
-          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
-            GET {baseUrl}/api/codes/latest?group={group.id}&after=2026-07-15T08:00:00.000Z
-          </code>
           <div className="text-xs text-gray-400 mt-1">
-            after 为 ISO 时间；返回该时间之后收到的第一封邮件（按接收时间升序）
+            按本分组当前提取规则实时提取，并用响应模板作为返回内容
           </div>
         </div>
         <div>
-          <div className="text-gray-500 mb-1">仅获取验证码：</div>
-          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200">
+          <div className="text-gray-500 mb-1">获取 after 之后本分组第一封邮件（轮询用）：</div>
+          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
+            GET {baseUrl}/api/codes/latest?group={group.id}&after=2026-07-15T08:00:00.000Z
+          </code>
+        </div>
+        <div>
+          <div className="text-gray-500 mb-1">仅获取本分组最新验证码：</div>
+          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
             GET {baseUrl}/api/codes/latest/code?group={group.id}
           </code>
+          <div className="text-xs text-gray-400 mt-1">
+            返回固定结构：email_id / from / subject / code / received_at；无提取规则时 code 为 ""
+          </div>
         </div>
         <div>
           <div className="text-gray-500 mb-1">仅获取验证码（带 after）：</div>
           <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200 break-all">
             GET {baseUrl}/api/codes/latest/code?group={group.id}&after=2026-07-15T08:00:00.000Z
-          </code>
-        </div>
-        <div>
-          <div className="text-gray-500 mb-1">查询所有邮件：</div>
-          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200">
-            GET {baseUrl}/api/emails?group={group.id}&limit=10
-          </code>
-        </div>
-        <div>
-          <div className="text-gray-500 mb-1">Cloudflare Email Worker 推送邮件接口：</div>
-          <code className="block bg-gray-50 rounded-lg px-3 py-2 text-blue-700 border border-gray-200">
-            POST {baseUrl}/api/webhook/email
           </code>
         </div>
       </div>
