@@ -27,6 +27,38 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function decodeMime(text: string): string {
+  return text.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_, charset, encoding, content) => {
+    try {
+      if (encoding.toUpperCase() === 'B') {
+        const binary = atob(content);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder(charset).decode(bytes);
+      }
+      if (encoding.toUpperCase() === 'Q') {
+        let decoded = '';
+        for (let i = 0; i < content.length; i++) {
+          if (content[i] === '=' && i + 2 < content.length) {
+            decoded += String.fromCharCode(parseInt(content.substring(i + 1, i + 3), 16));
+            i += 2;
+          } else if (content[i] === '_') {
+            decoded += ' ';
+          } else {
+            decoded += content[i];
+          }
+        }
+        const bytes = new Uint8Array(decoded.length);
+        for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+        return new TextDecoder(charset).decode(bytes);
+      }
+      return content;
+    } catch {
+      return content;
+    }
+  });
+}
+
 function getFieldValue(email: {
   from_addr: string;
   subject: string;
@@ -35,7 +67,7 @@ function getFieldValue(email: {
 }, field: string): string {
   switch (field) {
     case 'sender': return email.from_addr;
-    case 'subject': return email.subject;
+    case 'subject': return decodeMime(email.subject || '');
     case 'body_html': return email.body_html;
     case 'body_text': return email.body_text;
     default: return '';

@@ -68,16 +68,25 @@ function decodeQPLine(line: string): number[] {
   return result;
 }
 
+function unfoldHeaders(headers: string): string {
+  return headers.replace(/\n[ \t]+/g, ' ');
+}
+
+function getHeader(headers: string, name: string): string {
+  const re = new RegExp(`^${name}:\\s*(.*)$`, 'im');
+  const m = unfoldHeaders(headers).match(re);
+  return m ? m[1].trim() : '';
+}
+
 function parseRawEmail(raw: string): { subject: string; bodyText: string; bodyHtml: string } {
   const normalized = raw.replace(/\r\n/g, '\n');
   const isQP = /content-transfer-encoding:\s*quoted-printable/i.test(normalized);
 
-  const parts = normalized.split(/\n\n+/);
-  const headers = parts[0] || '';
-  const body = parts.slice(1).join('\n\n') || '';
+  const headerEnd = normalized.search(/\n\n/);
+  const headers = headerEnd >= 0 ? normalized.slice(0, headerEnd) : normalized;
+  const body = headerEnd >= 0 ? normalized.slice(headerEnd + 2) : '';
 
-  const subjectMatch = headers.match(/^Subject:\s*(.+)$/im);
-  const subject = subjectMatch ? decodeMimeSubject(subjectMatch[1].trim().replace(/\s+/g, ' ')) : '';
+  const subject = decodeMimeSubject(getHeader(headers, 'Subject').replace(/\s+/g, ' '));
 
   let bodyText = '';
   let bodyHtml = '';

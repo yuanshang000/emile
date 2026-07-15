@@ -113,6 +113,7 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string, i
           )}
           {recentEmails?.items.map(e => {
             const isOpen = expandedEmail?.id === e.id;
+            const group = groups.find(g => g.id === e.group_id);
             return (
               <div key={e.id}>
                 <div className="px-5 py-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
@@ -121,8 +122,13 @@ export default function Dashboard({ onNavigate }: { onNavigate: (page: string, i
                     <div className="font-medium text-gray-800 truncate">{decodeMime(e.subject || '(无主题)')}</div>
                     <div className="text-sm text-gray-400 truncate">{e.from_addr}</div>
                   </div>
-                  <div className="text-xs text-gray-400 ml-4 whitespace-nowrap">
-                    {new Date(e.received_at).toLocaleString('zh-CN')}
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <span className={`px-2 py-0.5 rounded text-xs ${group ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {group ? group.name : '默认'}
+                    </span>
+                    <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">
+                      {new Date(e.received_at).toLocaleString('zh-CN')}
+                    </div>
                   </div>
                 </div>
                 {isOpen && expandedEmail && (
