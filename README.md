@@ -3,20 +3,28 @@
 ## 前提条件
 
 - 一个 GitHub 账号
-- 一个 Cloudflare 账号，且域名（如 `manyme.com`）已在 Cloudflare 管理
+- 一个 Cloudflare 账号，且**你的接收邮箱域名**已在 Cloudflare 管理
 - Node.js 18+ 已安装（本地开发用）
+
+> 注意区分两个概念：
+> - **项目名**：`manyme`，只是这个代码仓库的名字
+> - **接收邮箱域名**：你真正用来收邮件的域名（比如 `my-incoming.com`），需要在 Cloudflare 上管理
 
 ---
 
-## 第一步：创建 GitHub 仓库
+## 第一步：创建或 Fork GitHub 仓库
 
+**选项 A：创建新仓库**
 1. 打开 https://github.com/new
 2. **Repository name** 填写 `manyme`（或其他名字）
 3. 选 **Private** 或 **Public** 均可
 4. 不要勾选 "Add a README"、"Add .gitignore" 等任何初始化选项
 5. 点击 **Create repository**
 
-创建后会显示一个空仓库页面，有推送指引。先留着这个页面，后面会用到。
+**选项 B：Fork 已有仓库**
+如果你是从已有仓库（如团队项目）开始，直接 Fork 到你的 GitHub 账号下即可。
+
+创建/Fork 后会显示仓库页面，先留着后面会用到。
 
 ---
 
@@ -32,7 +40,7 @@ GitHub Actions 需要凭据来操作 Cloudflare（创建 D1 数据库、部署 W
    - `Account > D1 > Edit`
    - `Zone > Email Routing > Edit`（用于配置邮件路由）
 5. 在 **Account Resources** 选择你的账号
-6. 在 **Zone Resources** 选择你的域名（如 `manyme.com`）
+6. 在 **Zone Resources** 选择你的**接收邮箱域名**
 7. 点击 **Continue to Summary** → **Create Token**
 8. **复制生成的 Token**（只会显示一次，务必保存好）
 
@@ -53,44 +61,29 @@ GitHub Actions 需要凭据来操作 Cloudflare（创建 D1 数据库、部署 W
 | Name | `CLOUDFLARE_API_TOKEN` |
 | Secret | 粘贴刚才复制的 Cloudflare API Token |
 
-### Secret 2: `DOMAIN`（可选）
+### Secret 2: `DOMAIN`
+
+这个是你**用来接收邮件的域名**。部署后，Worker 会配置邮件路由规则 `*@你的域名`，所有发往该域名的邮件都会自动转发给 Worker 处理。
+
+例如你的接收邮箱域名是 `my-incoming.com`，那就填 `my-incoming.com`。
 
 | 字段 | 值 |
 |------|-----|
 | Name | `DOMAIN` |
-| Secret | 你的域名，如 `manyme.com` |
+| Secret | 你的接收邮箱域名，如 `my-incoming.com` |
 
-> 如果不设置 `DOMAIN`，默认会使用 `yourdomain.com`，邮件路由配置会不对。**建议设置。**
+> 这个域名和项目名（`manyme`）无关，填你实际用来收邮件的那个域名。不设置的话默认是 `yourdomain.com`，邮件路由会指向错误的域名。**必须设置。**
 
 添加完成后应该能看到两个 Secrets：
 
 ```
 CLOUDFLARE_API_TOKEN  ●●●●●●●●●●●●
-DOMAIN                manyme.com
+DOMAIN                my-incoming.com
 ```
 
 ---
 
-## 第四步：推送代码到 GitHub
-
-回到本地项目目录，执行以下命令：
-
-```bash
-# 重命名分支为 main
-git branch -m master main
-
-# 添加远程仓库（替换成你的仓库地址）
-git remote add origin https://github.com/你的用户名/manyme.git
-
-# 推送代码
-git push -u origin main
-```
-
-推送后，打开 GitHub 仓库页面，应该能看到所有代码文件。
-
----
-
-## 第五步：查看部署进度
+## 第四步：查看部署进度
 
 1. 在 GitHub 仓库页面，点击顶部 **Actions** 标签
 2. 你会看到一个正在运行（或刚刚触发）的 workflow：**"Deploy to Cloudflare"**
@@ -118,7 +111,7 @@ git push -u origin main
 
 ---
 
-## 第六步：验证部署
+## 第五步：验证部署
 
 部署成功后，访问以下地址验证：
 
@@ -141,23 +134,23 @@ https://manyme-api.你的用户名.workers.dev
 
 ---
 
-## 第七步：配置 Cloudflare Email Routing（最关键的一步）
+## 第六步：配置 Cloudflare Email Routing（最关键的一步）
 
-部署完成后，Worker 已经能处理邮件了。但还需要告诉 Cloudflare 把收到的邮件转发给这个 Worker。
+部署完成后，Worker 已经能处理邮件了。现在需要告诉 Cloudflare 把你的接收邮箱域名的邮件转发给这个 Worker。
 
-### 7.1 创建 Email Routing 规则
+### 6.1 进入 Email Routing
 
 1. 打开 https://dash.cloudflare.com
-2. 选择你的域名（如 `manyme.com`）
+2. 选择你的**接收邮箱域名**
 3. 进入 **Email** → **Email Routing**
 4. 如果提示 "Enable Email Routing"，点击启用
 
-### 7.2 设置目标地址
+### 6.2 设置目标地址
 
 在 **Destination addresses** 区域：
 1. 添加你的邮箱（用于接收邮件），验证它
 
-### 7.3 创建 Catch-All 路由规则
+### 6.3 创建 Catch-All 路由规则
 
 在 **Routing rules** 区域：
 1. 点击 **Create rule**
@@ -166,12 +159,12 @@ https://manyme-api.你的用户名.workers.dev
 4. **Worker**: 选择 `manyme-api`
 5. 点击 **Save**
 
-> 如果你希望只处理特定子地址的邮件（而不是全部），可以把规则改为自定义匹配：
+> 如果你希望只处理特定子地址的邮件，可以把规则改为自定义匹配：
 > - **Custom** → **Matches** → `verify@`、`noreply@` 等
 
-### 7.4 配置 DNS（自动/手动）
+### 6.4 确认 DNS 记录
 
-Email Routing 通常会自动添加必要的 MX 记录。可以在 **Email** → **Email Routing** → **DNS records** 确认：
+Email Routing 通常会自动添加 MX 记录。在 **Email** → **Email Routing** → **DNS records** 确认：
 
 | Type | Name | Priority | Target |
 |------|------|----------|--------|
@@ -179,7 +172,7 @@ Email Routing 通常会自动添加必要的 MX 记录。可以在 **Email** →
 | MX | @ | 20 | `route2.mx.cloudflare.net` |
 | TXT | @ | - | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
 
-如果这些记录已自动添加，就无需手动操作。
+如果已自动添加，无需手动操作。
 
 ---
 
@@ -187,7 +180,7 @@ Email Routing 通常会自动添加必要的 MX 记录。可以在 **Email** →
 
 ### 查看收到的邮件
 
-部署并配置好 Email Routing 后，任何发往 `任意地址@你的域名` 的邮件都会：
+部署并配置好 Email Routing 后，任何发往 `任意地址@你的接收邮箱域名` 的邮件都会：
 1. 被 Cloudflare Email Routing 接收
 2. 转发到你的 Worker（`manyme-api`）
 3. Worker 自动分类、提取验证码
@@ -227,6 +220,7 @@ A: 最常见原因是 Email Routing 没有正确配置。检查：
 1. Email Routing 是否已启用
 2. Catch-All 规则是否指向了 `manyme-api` Worker
 3. DNS MX 记录是否生效（可能需要等待几分钟）
+4. `DOMAIN` secret 是否填对了你的**接收邮箱域名**
 
 ### Q: 如何清空数据？
 ```bash
