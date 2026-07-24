@@ -5,6 +5,7 @@ import { groupsRoute } from './routes/groups';
 import { emailsRoute } from './routes/emails';
 import { codesRoute } from './routes/codes';
 import { forwardsRoute } from './routes/forwards';
+import { emailLibRoute } from './routes/email-lib';
 import { handleIncomingEmail } from './email-handler';
 import { cleanupOldEmails } from './db';
 
@@ -25,6 +26,7 @@ app.route('/api/groups', groupsRoute);
 app.route('/api/emails', emailsRoute);
 app.route('/api/codes', codesRoute);
 app.route('/api/forwards', forwardsRoute);
+app.route('/api/email-lib', emailLibRoute);
 
 app.get('/api/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

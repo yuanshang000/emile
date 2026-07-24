@@ -6,6 +6,7 @@ import webhookRoutes from './routes/webhook';
 import groupsRoutes from './routes/groups';
 import emailsRoutes from './routes/emails';
 import codesRoutes from './routes/codes';
+import emailLibRoutes from './routes/email-lib';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +21,7 @@ app.use('/api', webhookRoutes);
 app.use('/api/groups', groupsRoutes);
 app.use('/api/emails', emailsRoutes);
 app.use('/api/codes', codesRoutes);
+app.use('/api/email-lib', emailLibRoutes);
 
 const publicPath = path.resolve(__dirname, '../../client/dist');
 app.use(express.static(publicPath));

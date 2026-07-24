@@ -211,3 +211,94 @@ export async function deleteForwardAccount(db: D1Database, id: string) {
   const { meta } = await db.prepare('DELETE FROM forward_accounts WHERE id = ?').bind(id).run();
   return meta.changes > 0;
 }
+
+// ---- Email Library ----
+
+export async function listEmailLibCategories(db: D1Database) {
+  const { results } = await db.prepare(`
+    SELECT c.*,
+      COALESCE(s.current_index, 0) AS current_index,
+      (SELECT COUNT(*) FROM email_lib_entries WHERE category_id = c.id) AS total
+    FROM email_lib_categories c
+    LEFT JOIN email_lib_state s ON s.category_id = c.id
+    ORDER BY c.created_at ASC
+  `).all();
+  return results;
+}
+
+export async function getEmailLibCategory(db: D1Database, id: string) {
+  return db.prepare(`
+    SELECT c.*,
+      COALESCE(s.current_index, 0) AS current_index,
+      (SELECT COUNT(*) FROM email_lib_entries WHERE category_id = c.id) AS total
+    FROM email_lib_categories c
+    LEFT JOIN email_lib_state s ON s.category_id = c.id
+    WHERE c.id = ?
+  `).bind(id).first();
+}
+
+export async function createEmailLibCategory(db: D1Database, name: string) {
+  const id = uid();
+  await db.prepare('INSERT INTO email_lib_categories (id, name) VALUES (?, ?)').bind(id, name).run();
+  await db.prepare('INSERT INTO email_lib_state (category_id, current_index) VALUES (?, 0)').bind(id).run();
+  return getEmailLibCategory(db, id);
+}
+
+export async function updateEmailLibCategory(db: D1Database, id: string, name: string) {
+  const existing = await getEmailLibCategory(db, id);
+  if (!existing) return null;
+  await db.prepare("UPDATE email_lib_categories SET name=?, updated_at=datetime('now') WHERE id=?").bind(name, id).run();
+  return getEmailLibCategory(db, id);
+}
+
+export async function deleteEmailLibCategory(db: D1Database, id: string) {
+  const { meta } = await db.prepare('DELETE FROM email_lib_categories WHERE id = ?').bind(id).run();
+  return meta.changes > 0;
+}
+
+export async function getEmailLibEntries(db: D1Database, categoryId: string) {
+  const { results } = await db.prepare(
+    'SELECT * FROM email_lib_entries WHERE category_id = ? ORDER BY sort_order ASC, created_at ASC'
+  ).bind(categoryId).all();
+  return results;
+}
+
+export async function setEmailLibEntries(db: D1Database, categoryId: string, emails: string[]) {
+  const existing = await getEmailLibCategory(db, categoryId);
+  if (!existing) return [];
+
+  await db.prepare('DELETE FROM email_lib_entries WHERE category_id = ?').bind(categoryId).run();
+  await db.prepare("UPDATE email_lib_state SET current_index = 0 WHERE category_id = ?").bind(categoryId).run();
+
+  const insert = db.prepare('INSERT INTO email_lib_entries (id, category_id, email, sort_order) VALUES (?, ?, ?, ?)');
+  for (let i = 0; i < emails.length; i++) {
+    const e = emails[i].trim();
+    if (e) {
+      await insert.bind(uid(), categoryId, e, i).run();
+    }
+  }
+
+  return getEmailLibEntries(db, categoryId);
+}
+
+export async function getEmailLibNext(db: D1Database, categoryId: string) {
+  const entries = await getEmailLibEntries(db, categoryId);
+  if (entries.length === 0) return null;
+
+  const state: any = await db.prepare('SELECT * FROM email_lib_state WHERE category_id = ?').bind(categoryId).first();
+  let idx = state ? state.current_index : 0;
+  if (idx >= entries.length) idx = 0;
+
+  const entry: any = entries[idx];
+  const nextIdx = (idx + 1) % entries.length;
+  await db.prepare('UPDATE email_lib_state SET current_index = ? WHERE category_id = ?').bind(nextIdx, categoryId).run();
+
+  return { email: entry.email, index: idx, total: entries.length };
+}
+
+export async function resetEmailLibState(db: D1Database, categoryId: string) {
+  const existing = await getEmailLibCategory(db, categoryId);
+  if (!existing) return false;
+  await db.prepare('UPDATE email_lib_state SET current_index = 0 WHERE category_id = ?').bind(categoryId).run();
+  return true;
+}

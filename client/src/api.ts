@@ -141,3 +141,40 @@ export const forwardsApi = {
   delete: (id: string) =>
     request<{ success: boolean }>(`/forwards/${id}`, { method: 'DELETE' }),
 };
+
+// ---- Email Library API ----
+
+export interface EmailLibCategory {
+  id: string;
+  name: string;
+  current_index: number;
+  total: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailLibEntry {
+  id: string;
+  category_id: string;
+  email: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export const emailLibApi = {
+  listCategories: () => request<EmailLibCategory[]>('/email-lib/categories'),
+  createCategory: (name: string) =>
+    request<EmailLibCategory>('/email-lib/categories', { method: 'POST', body: JSON.stringify({ name }) }),
+  updateCategory: (id: string, name: string) =>
+    request<EmailLibCategory>(`/email-lib/categories/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+  deleteCategory: (id: string) =>
+    request<{ success: boolean }>(`/email-lib/categories/${id}`, { method: 'DELETE' }),
+  getEmails: (categoryId: string) =>
+    request<EmailLibEntry[]>(`/email-lib/categories/${categoryId}/emails`),
+  setEmails: (categoryId: string, emails: string[]) =>
+    request<EmailLibEntry[]>(`/email-lib/categories/${categoryId}/emails`, { method: 'PUT', body: JSON.stringify({ emails }) }),
+  next: (categoryId: string) =>
+    request<{ email: string; index: number; total: number }>(`/email-lib/next/${categoryId}`),
+  reset: (categoryId: string) =>
+    request<{ success: boolean }>(`/email-lib/categories/${categoryId}/reset`, { method: 'POST' }),
+};
